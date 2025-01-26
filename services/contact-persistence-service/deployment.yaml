@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contact-persistence-container
+  labels:
+    app: contact-persistence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contact-persistence
+  template:
+    metadata:
+      labels:
+        app: contact-persistence
+    spec:
+      containers:
+      - name: contact-persistence
+        image: "natanroberto182/contact-persistence:latest"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: contact-persistence-config
+              key: ASPNETCORE_ENVIRONMENT
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-persistence-service
+spec:
+  selector:
+    app: user-persistence
+  ports:
+    - protocol: TCP
+      port: 5201
+      targetPort: 80
+  type: LoadBalancer

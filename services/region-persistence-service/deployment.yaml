@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: region-persistence-container
+  labels:
+    app: region-persistence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: region-persistence
+  template:
+    metadata:
+      labels:
+        app: region-persistence
+    spec:
+      containers:
+      - name: region-persistence
+        image: "natanroberto182/region-persistence:latest"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: region-persistence-config
+              key: ASPNETCORE_ENVIRONMENT
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

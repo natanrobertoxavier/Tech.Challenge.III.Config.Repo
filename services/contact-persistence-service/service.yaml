@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: contact-persistence-service
+spec:
+  selector:
+    app: contact-persistence
+  ports:
+    - protocol: TCP
+      port: 5206
+      targetPort: 80
+  type: LoadBalancer

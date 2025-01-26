@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: contact-query-service
+spec:
+  selector:
+    app: contact-query
+  ports:
+    - protocol: TCP
+      port: 5205
+      targetPort: 80
+  type: LoadBalancer

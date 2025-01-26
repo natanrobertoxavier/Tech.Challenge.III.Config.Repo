@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contact-query-container
+  labels:
+    app: contact-query
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contact-query
+  template:
+    metadata:
+      labels:
+        app: contact-query
+    spec:
+      containers:
+      - name: contact-query
+        image: "natanroberto182/contact-query:latest"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: contact-query-config
+              key: ASPNETCORE_ENVIRONMENT
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

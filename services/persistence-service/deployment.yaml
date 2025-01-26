@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tech-challenge-persistence-container
+  labels:
+    app: tech-challenge-persistence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tech-challenge-persistence
+  template:
+    metadata:
+      labels:
+        app: tech-challenge-persistence
+    spec:
+      containers:
+      - name: tech-challenge-persistence
+        image: "natanroberto182/tech-challenge-persistence:latest"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: tech-challenge-persistence-config
+              key: ASPNETCORE_ENVIRONMENT
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocelot-container
+  labels:
+    app: ocelot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ocelot
+  template:
+    metadata:
+      labels:
+        app: ocelot
+    spec:
+      containers:
+      - name: ocelot
+        image: "natanroberto182/ocelot:latest"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: ocelot-config
+              key: ASPNETCORE_ENVIRONMENT
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

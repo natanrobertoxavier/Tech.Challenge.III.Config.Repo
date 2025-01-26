@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-persistence-container
+  labels:
+    app: user-persistence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-persistence
+  template:
+    metadata:
+      labels:
+        app: user-persistence
+    spec:
+      containers:
+      - name: user-persistence
+        image: "natanroberto182/user-persistence:latest"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: region-persistence-config
+              key: ASPNETCORE_ENVIRONMENT
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

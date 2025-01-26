@@ -1,0 +1,34 @@
+name: Update Kubernetes Configurations
+
+on:
+  repository_dispatch:
+    types: [update-configurations]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Nome do serviço a ser atualizado (exemplo: contact-query)"
+        required: true
+
+jobs:
+  update-service:
+    name: Update Service Configurations
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout configurations
+      uses: actions/checkout@v2
+
+    - name: Set up Kubernetes configuration
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+
+    - name: Update Kubernetes Deployment
+      run: |
+        SERVICE_NAME="${{ github.event.inputs.service }}"
+        DEPLOYMENT_FILE="$SERVICE_NAME/deployment.yaml"
+    
+        IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/$SERVICE_NAME/tags/latest | jq -r '.images[0].digest')
+        sed -i "s|image:.*|image: natanroberto182/$SERVICE_NAME@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
+
+        kubectl apply -f $DEPLOYMENT_FILE

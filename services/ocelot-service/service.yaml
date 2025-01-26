@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocelot-service
+spec:
+  selector:
+    app: ocelot
+  ports:
+    - protocol: TCP
+      port: 5555
+      targetPort: 80
+  type: LoadBalancer
