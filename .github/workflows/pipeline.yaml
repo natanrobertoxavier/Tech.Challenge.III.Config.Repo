@@ -1,12 +1,10 @@
 name: Update Kubernetes Configurations
 
 on:
-  repository_dispatch:
-    types: [update-configurations]
   workflow_dispatch:
     inputs:
       service:
-        description: "Nome do serviço a ser atualizado (exemplo: ocelot)"
+        description: "Nome do serviço a ser atualizado (exemplo: ocelot, user-query)"
         required: true
 
 jobs:
@@ -25,67 +23,69 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-      # Define os serviços a serem processados
-      - name: Set the list of services
-        id: set-services
+      # Atualiza o serviço com base no nome fornecido
+      - name: Update ocelot service
+        if: ${{ inputs.service == 'ocelot' }}
         run: |
-          echo "Determining which services to update"
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            SERVICES="${{ github.event.inputs.service }}"
-          elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            SERVICES="${{ toJSON(github.event.client_payload.services) }}"
+          echo "Deploying service: ocelot"
+
+          SERVICE_DIR="./ocelot"
+
+          if [ ! -d "$SERVICE_DIR" ]; then
+            echo "Error: Directory $SERVICE_DIR does not exist."
+            exit 1
           fi
-          echo "Services to update: $SERVICES"
-          echo "SERVICES=$SERVICES" >> $GITHUB_ENV
 
-      # Itera pelos serviços e aplica as configurações
-      - name: Iterate and update services
+          DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
+          if [ -f "$DEPLOYMENT_FILE" ]; then
+            IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/ocelot/tags/latest | jq -r '.images[0].digest')
+            if [ -z "$IMAGE_DIGEST" ]; then
+              echo "Error: Failed to retrieve image digest for ocelot"
+              exit 1
+            fi
+            sed -i "s|image:.*|image: natanroberto182/ocelot@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
+            kubectl apply -f $DEPLOYMENT_FILE
+          fi
+
+          SERVICE_FILE="$SERVICE_DIR/service.yaml"
+          if [ -f "$SERVICE_FILE" ]; then
+            kubectl apply -f $SERVICE_FILE
+          fi
+
+          CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
+          if [ -f "$CONFIGMAP_FILE" ]; then
+            kubectl apply -f $CONFIGMAP_FILE
+          fi
+
+      - name: Update user-query service
+        if: ${{ inputs.service == 'user-query' }}
         run: |
-          echo "Updating Kubernetes configurations for all services"
-          for SERVICE_NAME in $(echo $SERVICES | jq -r '.[]'); do
-            echo "Processing service: $SERVICE_NAME"
+          echo "Deploying service: user-query"
 
-            # Define o diretório do serviço
-            SERVICE_DIR="./$SERVICE_NAME"
+          SERVICE_DIR="./user-query"
 
-            if [ ! -d "$SERVICE_DIR" ]; then
-              echo "Error: Directory $SERVICE_DIR does not exist for service $SERVICE_NAME."
-              continue
+          if [ ! -d "$SERVICE_DIR" ]; then
+            echo "Error: Directory $SERVICE_DIR does not exist."
+            exit 1
+          fi
+
+          DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
+          if [ -f "$DEPLOYMENT_FILE" ]; then
+            IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/user-query/tags/latest | jq -r '.images[0].digest')
+            if [ -z "$IMAGE_DIGEST" ]; then
+              echo "Error: Failed to retrieve image digest for user-query"
+              exit 1
             fi
+            sed -i "s|image:.*|image: natanroberto182/user-query@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
+            kubectl apply -f $DEPLOYMENT_FILE
+          fi
 
-            # Processa o deployment.yaml
-            DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
-            if [ -f "$DEPLOYMENT_FILE" ]; then
-              echo "Updating deployment for $SERVICE_NAME"
+          SERVICE_FILE="$SERVICE_DIR/service.yaml"
+          if [ -f "$SERVICE_FILE" ]; then
+            kubectl apply -f $SERVICE_FILE
+          fi
 
-              IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/$SERVICE_NAME/tags/latest | jq -r '.images[0].digest')
-
-              if [ -z "$IMAGE_DIGEST" ]; then
-                echo "Error: Failed to retrieve image digest for $SERVICE_NAME"
-                continue
-              fi
-
-              sed -i "s|image:.*|image: natanroberto182/$SERVICE_NAME@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
-              kubectl apply -f $DEPLOYMENT_FILE
-            else
-              echo "Deployment file not found for $SERVICE_NAME"
-            fi
-
-            # Processa o service.yaml
-            SERVICE_FILE="$SERVICE_DIR/service.yaml"
-            if [ -f "$SERVICE_FILE" ]; then
-              echo "Applying service configuration for $SERVICE_NAME"
-              kubectl apply -f $SERVICE_FILE
-            else
-              echo "Service file not found for $SERVICE_NAME"
-            fi
-
-            # Processa o configmap.yaml
-            CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
-            if [ -f "$CONFIGMAP_FILE" ]; then
-              echo "Applying configmap for $SERVICE_NAME"
-              kubectl apply -f $CONFIGMAP_FILE
-            else
-              echo "ConfigMap file not found for $SERVICE_NAME"
-            fi
-          done
+          CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
+          if [ -f "$CONFIGMAP_FILE" ]; then
+            kubectl apply -f $CONFIGMAP_FILE
+          fi
