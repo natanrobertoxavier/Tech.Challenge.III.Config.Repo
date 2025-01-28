@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Nome do serviço a ser atualizado (exemplo: contact-query)"
+        description: "Nome do serviço a ser atualizado (exemplo: ocelot)"
         required: true
 
 jobs:
@@ -15,47 +15,77 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - name: Checkout configurations
-      uses: actions/checkout@v2
+      # Faz o checkout do código
+      - name: Checkout configurations
+        uses: actions/checkout@v2
 
-    - name: Set up Kubernetes configuration
-      run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+      # Configura o acesso ao Kubernetes
+      - name: Set up Kubernetes configuration
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-    - name: Set the service name
-      id: set-service-name
-      run: |
-        echo "Determining which service to update"
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          SERVICE_NAME="${{ github.event.inputs.service }}"
-        elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-          SERVICE_NAME="${{ github.event.client_payload.services }}"
-        fi
-        echo "Service to update: $SERVICE_NAME"
-        echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
+      # Define os serviços a serem processados
+      - name: Set the list of services
+        id: set-services
+        run: |
+          echo "Determining which services to update"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SERVICES="${{ github.event.inputs.service }}"
+          elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            SERVICES="${{ toJSON(github.event.client_payload.services) }}"
+          fi
+          echo "Services to update: $SERVICES"
+          echo "SERVICES=$SERVICES" >> $GITHUB_ENV
 
-    - name: Verify service and update Kubernetes deployment
-      run: |
-        if [ -z "$SERVICE_NAME" ]; then
-          echo "Error: Service name is missing."
-          exit 1
-        fi
+      # Itera pelos serviços e aplica as configurações
+      - name: Iterate and update services
+        run: |
+          echo "Updating Kubernetes configurations for all services"
+          for SERVICE_NAME in $(echo $SERVICES | jq -r '.[]'); do
+            echo "Processing service: $SERVICE_NAME"
 
-        DEPLOYMENT_FILE="$SERVICE_NAME/deployment.yaml"
+            # Define o diretório do serviço
+            SERVICE_DIR="./$SERVICE_NAME"
 
-        if [ ! -f "$DEPLOYMENT_FILE" ]; then
-          echo "Error: Deployment file $DEPLOYMENT_FILE does not exist."
-          exit 1
-        fi
+            if [ ! -d "$SERVICE_DIR" ]; then
+              echo "Error: Directory $SERVICE_DIR does not exist for service $SERVICE_NAME."
+              continue
+            fi
 
-        IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/$SERVICE_NAME/tags/latest | jq -r '.images[0].digest')
+            # Processa o deployment.yaml
+            DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
+            if [ -f "$DEPLOYMENT_FILE" ]; then
+              echo "Updating deployment for $SERVICE_NAME"
 
-        if [ -z "$IMAGE_DIGEST" ]; then
-          echo "Error: Failed to retrieve image digest for $SERVICE_NAME"
-          exit 1
-        fi
+              IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/$SERVICE_NAME/tags/latest | jq -r '.images[0].digest')
 
-        sed -i "s|image:.*|image: natanroberto182/$SERVICE_NAME@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
+              if [ -z "$IMAGE_DIGEST" ]; then
+                echo "Error: Failed to retrieve image digest for $SERVICE_NAME"
+                continue
+              fi
 
-        kubectl apply -f $DEPLOYMENT_FILE
+              sed -i "s|image:.*|image: natanroberto182/$SERVICE_NAME@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
+              kubectl apply -f $DEPLOYMENT_FILE
+            else
+              echo "Deployment file not found for $SERVICE_NAME"
+            fi
+
+            # Processa o service.yaml
+            SERVICE_FILE="$SERVICE_DIR/service.yaml"
+            if [ -f "$SERVICE_FILE" ]; then
+              echo "Applying service configuration for $SERVICE_NAME"
+              kubectl apply -f $SERVICE_FILE
+            else
+              echo "Service file not found for $SERVICE_NAME"
+            fi
+
+            # Processa o configmap.yaml
+            CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
+            if [ -f "$CONFIGMAP_FILE" ]; then
+              echo "Applying configmap for $SERVICE_NAME"
+              kubectl apply -f $CONFIGMAP_FILE
+            else
+              echo "ConfigMap file not found for $SERVICE_NAME"
+            fi
+          done
