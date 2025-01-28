@@ -23,12 +23,39 @@ jobs:
         mkdir -p ~/.kube
         echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-    - name: Update Kubernetes Deployment
+    - name: Set the service name
+      id: set-service-name
       run: |
-        SERVICE_NAME="${{ github.event.inputs.service }}"
+        echo "Determining which service to update"
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          SERVICE_NAME="${{ github.event.inputs.service }}"
+        elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+          SERVICE_NAME="${{ github.event.client_payload.services }}"
+        fi
+        echo "Service to update: $SERVICE_NAME"
+        echo "SERVICE_NAME=$SERVICE_NAME" >> $GITHUB_ENV
+
+    - name: Verify service and update Kubernetes deployment
+      run: |
+        if [ -z "$SERVICE_NAME" ]; then
+          echo "Error: Service name is missing."
+          exit 1
+        fi
+
         DEPLOYMENT_FILE="$SERVICE_NAME/deployment.yaml"
-    
+
+        if [ ! -f "$DEPLOYMENT_FILE" ]; then
+          echo "Error: Deployment file $DEPLOYMENT_FILE does not exist."
+          exit 1
+        fi
+
         IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/$SERVICE_NAME/tags/latest | jq -r '.images[0].digest')
+
+        if [ -z "$IMAGE_DIGEST" ]; then
+          echo "Error: Failed to retrieve image digest for $SERVICE_NAME"
+          exit 1
+        fi
+
         sed -i "s|image:.*|image: natanroberto182/$SERVICE_NAME@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
 
         kubectl apply -f $DEPLOYMENT_FILE
