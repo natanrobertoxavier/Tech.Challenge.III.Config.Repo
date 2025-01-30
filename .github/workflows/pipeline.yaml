@@ -28,7 +28,7 @@ jobs:
 
       # Atualiza o serviço com base no nome fornecido
       - name: Update ocelot service
-        if: ${{ inputs.service == 'ocelot' }}
+        if: ${{ github.event.client_payload.services == 'ocelot' }}
         run: |
           echo "Deploying service: ocelot"
 
@@ -60,7 +60,7 @@ jobs:
             kubectl apply -f $CONFIGMAP_FILE
           fi
 
-      - name: Update user-query service
+      if: ${{ github.event.client_payload.services == 'user-query' }}
         if: ${{ inputs.service == 'user-query' }}
         run: |
           echo "Deploying service: user-query"
