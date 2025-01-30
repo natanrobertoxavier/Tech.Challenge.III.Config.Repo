@@ -16,17 +16,14 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # Faz o checkout do código
       - name: Checkout configurations
         uses: actions/checkout@v2
 
-      # Configura o acesso ao Kubernetes
       - name: Set up Kubernetes configuration
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-      # Atualiza o serviço com base no nome fornecido
       - name: Update ocelot service
         if: ${{ github.event.client_payload.services == 'ocelot' }}
         run: |
