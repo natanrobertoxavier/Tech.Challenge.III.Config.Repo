@@ -19,7 +19,7 @@ jobs:
       # Faz o checkout do código
       - name: Checkout configurations
         uses: actions/checkout@v2
-
+      
       # Configura o acesso ao Kubernetes
       - name: Set up Kubernetes configuration
         run: |
@@ -32,6 +32,9 @@ jobs:
         run: |
           echo "Deploying service: ocelot"
 
+        - name: List files for debugging
+          run: ls -R
+      
           SERVICE_DIR="./ocelot"
 
           if [ ! -d "$SERVICE_DIR" ]; then
