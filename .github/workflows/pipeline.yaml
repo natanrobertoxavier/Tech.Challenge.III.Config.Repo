@@ -7,6 +7,9 @@ on:
         description: "Nome do serviço a ser atualizado (exemplo: ocelot, user-query)"
         required: true
 
+  repository_dispatch:
+    types: [update-configurations]
+
 jobs:
   update-service:
     name: Update Service Configurations
