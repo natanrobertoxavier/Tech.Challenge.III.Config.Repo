@@ -26,73 +26,49 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
+      # Listar arquivos para depuração
       - name: List files for debugging
         run: |
           ls -R
 
-      # Atualiza o serviço com base no nome fornecido
-      - name: Update ocelot service
-        if: ${{ github.event.client_payload.services == 'ocelot' }}
+      # Função para atualizar o serviço
+      - name: Update service
         run: |
-          echo "Deploying service: ocelot"
-      
-          SERVICE_DIR="./services/ocelot-service"
-
-          if [ ! -d "$SERVICE_DIR" ]; then
-            echo "Error: Directory $SERVICE_DIR does not exist."
-            exit 1
-          fi
-
-          DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
-          if [ -f "$DEPLOYMENT_FILE" ]; then
-            IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/ocelot/tags/latest | jq -r '.images[0].digest')
-            if [ -z "$IMAGE_DIGEST" ]; then
-              echo "Error: Failed to retrieve image digest for ocelot"
+          update_service() {
+            local service_name=$1
+            local service_dir="./services/$service_name-service"
+            
+            if [ ! -d "$service_dir" ]; then
+              echo "Error: Directory $service_dir does not exist."
               exit 1
             fi
-            sed -i "s|image:.*|image: natanroberto182/ocelot@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
-            kubectl apply -f $DEPLOYMENT_FILE
-          fi
 
-          SERVICE_FILE="$SERVICE_DIR/service.yaml"
-          if [ -f "$SERVICE_FILE" ]; then
-            kubectl apply -f $SERVICE_FILE
-          fi
-
-          CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
-          if [ -f "$CONFIGMAP_FILE" ]; then
-            kubectl apply -f $CONFIGMAP_FILE
-          fi
-
-      - name: Update user-query service
-        if: ${{ github.event.client_payload.services == 'user-query' }}
-        run: |
-          echo "Deploying service: user-query"
-
-          SERVICE_DIR="./user-query"
-
-          if [ ! -d "$SERVICE_DIR" ]; then
-            echo "Error: Directory $SERVICE_DIR does not exist."
-            exit 1
-          fi
-
-          DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
-          if [ -f "$DEPLOYMENT_FILE" ]; then
-            IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/user-query/tags/latest | jq -r '.images[0].digest')
-            if [ -z "$IMAGE_DIGEST" ]; then
-              echo "Error: Failed to retrieve image digest for user-query"
-              exit 1
+            local deployment_file="$service_dir/deployment.yaml"
+            if [ -f "$deployment_file" ]; then
+              IMAGE_DIGEST=$(curl -s "https://hub.docker.com/v2/repositories/natanroberto182/$service_name/tags/latest" | jq -r '.images[0].digest')
+              if [ -z "$IMAGE_DIGEST" ]; then
+                echo "Error: Failed to retrieve image digest for $service_name"
+                exit 1
+              fi
+              sed -i "s|image:.*|image: natanroberto182/$service_name@$IMAGE_DIGEST|" $deployment_file
+              kubectl apply -f $deployment_file
             fi
-            sed -i "s|image:.*|image: natanroberto182/user-query@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
-            kubectl apply -f $DEPLOYMENT_FILE
-          fi
 
-          SERVICE_FILE="$SERVICE_DIR/service.yaml"
-          if [ -f "$SERVICE_FILE" ]; then
-            kubectl apply -f $SERVICE_FILE
-          fi
+            for resource_file in "$service_dir"/*.yaml; do
+              if [ -f "$resource_file" ]; then
+                kubectl apply -f $resource_file
+              fi
+            done
+          }
 
-          CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
-          if [ -f "$CONFIGMAP_FILE" ]; then
-            kubectl apply -f $CONFIGMAP_FILE
+          # Verifica o serviço a ser atualizado
+          if [ "${{ github.event.client_payload.services }}" == "ocelot" ]; then
+            echo "Deploying service: ocelot"
+            update_service "ocelot"
+          elif [ "${{ github.event.client_payload.services }}" == "user-query" ]; then
+            echo "Deploying service: user-query"
+            update_service "user-query"
+          else
+            echo "Error: Service ${github.event.client_payload.services} is not recognized."
+            exit 1
           fi
