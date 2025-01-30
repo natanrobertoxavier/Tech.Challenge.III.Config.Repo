@@ -36,7 +36,7 @@ jobs:
         run: |
           echo "Deploying service: ocelot"
       
-          SERVICE_DIR="./ocelot"
+          SERVICE_DIR="./services/ocelot-service"
 
           if [ ! -d "$SERVICE_DIR" ]; then
             echo "Error: Directory $SERVICE_DIR does not exist."
