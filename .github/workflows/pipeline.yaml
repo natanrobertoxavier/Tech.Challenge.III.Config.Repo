@@ -28,12 +28,13 @@ jobs:
 
       # Atualiza o serviço com base no nome fornecido
       - name: Update ocelot service
+      
+        - name: List files for debugging
+          run: ls -R
+          
         if: ${{ github.event.client_payload.services == 'ocelot' }}
         run: |
           echo "Deploying service: ocelot"
-
-        - name: List files for debugging
-          run: ls -R
       
           SERVICE_DIR="./ocelot"
 
