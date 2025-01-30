@@ -135,7 +135,7 @@ jobs:
         run: |
           echo "Deploying service: tech-challenge-persistence"
       
-          SERVICE_DIR="./services/tech-challenge-persistence-service"
+          SERVICE_DIR="./services/persistence-service"
 
           if [ ! -d "$SERVICE_DIR" ]; then
             echo "Error: Directory $SERVICE_DIR does not exist."
