@@ -297,3 +297,37 @@ jobs:
           if [ -f "$CONFIGMAP_FILE" ]; then
             kubectl apply -f $CONFIGMAP_FILE
           fi
+
+      # Atualiza o servico Contact Persistence
+      - name: Update contact-persistence service
+        if: ${{ github.event.client_payload.services == 'contact-persistence' }}
+        run: |
+          echo "Deploying service: contact-persistence"
+      
+          SERVICE_DIR="./services/contact-persistence-service"
+
+          if [ ! -d "$SERVICE_DIR" ]; then
+            echo "Error: Directory $SERVICE_DIR does not exist."
+            exit 1
+          fi
+
+          DEPLOYMENT_FILE="$SERVICE_DIR/deployment.yaml"
+          if [ -f "$DEPLOYMENT_FILE" ]; then
+            IMAGE_DIGEST=$(curl -s https://hub.docker.com/v2/repositories/natanroberto182/contact-persistence/tags/latest | jq -r '.images[0].digest')
+            if [ -z "$IMAGE_DIGEST" ]; then
+              echo "Error: Failed to retrieve image digest for contact-persistence"
+              exit 1
+            fi
+            sed -i "s|image:.*|image: natanroberto182/contact-persistence@$IMAGE_DIGEST|" $DEPLOYMENT_FILE
+            kubectl apply -f $DEPLOYMENT_FILE
+          fi
+
+          SERVICE_FILE="$SERVICE_DIR/service.yaml"
+          if [ -f "$SERVICE_FILE" ]; then
+            kubectl apply -f $SERVICE_FILE
+          fi
+
+          CONFIGMAP_FILE="$SERVICE_DIR/configmap.yaml"
+          if [ -f "$CONFIGMAP_FILE" ]; then
+            kubectl apply -f $CONFIGMAP_FILE
+          fi
