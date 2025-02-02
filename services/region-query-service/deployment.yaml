@@ -23,7 +23,7 @@ spec:
         - name: ASPNETCORE_ENVIRONMENT
           valueFrom:
             configMapKeyRef:
-              name: user-persistence-config
+              name: region-query-config
               key: ASPNETCORE_ENVIRONMENT
         volumeMounts:
         - name: logs
